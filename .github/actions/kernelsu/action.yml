@@ -51,12 +51,15 @@ runs:
       shell: bash
       working-directory: ${{ github.workspace }}/kernel/aosp/KernelSU
       run: |
-        # Extract and export SukiSU Ultra version info (display/logging only)
-        KSU_GIT_VERSION=$(git rev-list --count HEAD 2>/dev/null)
-        KSU_GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null)
-        KSU_COMMIT=$(git rev-parse --short HEAD 2>/dev/null)
-        KSU_VERSION=$((10000 + KSU_GIT_VERSION))
+        # Display/logging only — MUST NOT fail the build. The builtin branch is a
+        # shallow clone with no tags, so `git describe --tags` returns non-zero and
+        # would abort the step under `-e -o pipefail`. Make every command tolerant.
+        KSU_GIT_VERSION=$(git rev-list --count HEAD 2>/dev/null || echo 0)
+        KSU_GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "builtin")
+        KSU_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+        KSU_VERSION=$((10000 + ${KSU_GIT_VERSION:-0}))
 
         echo "KSU_GIT_TAG=$KSU_GIT_TAG" >> $GITHUB_ENV
         echo "KSU_VERSION=$KSU_VERSION" >> $GITHUB_ENV
         echo "KSU_COMMIT=$KSU_COMMIT" >> $GITHUB_ENV
+        echo "SukiSU version info: tag=$KSU_GIT_TAG ver=$KSU_VERSION commit=$KSU_COMMIT"
