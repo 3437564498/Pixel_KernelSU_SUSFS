@@ -13,14 +13,26 @@ runs:
       shell: bash
       working-directory: ${{ github.workspace }}/kernel/aosp
       run: |
-        # setup.sh passes its first arg to `git checkout`. The SukiSU 'builtin' BRANCH
-        # is the one whose kernel/Kconfig declares the CONFIG_KSU_SUSFS_* symbols and
-        # whose Makefile has the susfs wiring. The default tag (v4.1.3)/main branch do
-        # NOT have susfs, causing bazel check_defconfig to fail. So use 'builtin' unless
-        # an explicit commit/branch is provided.
-        REF="${{ inputs.ksu_commit }}"
-        REF="${REF:-builtin}"
-        curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s "$REF"
+        # SukiSU's susfs Kconfig symbols live ONLY on the 'builtin' branch. We MUST be on
+        # that branch, so clone it explicitly rather than relying on setup.sh's checkout,
+        # which falls back to the default branch if a commit/ref isn't in a shallow clone
+        # (that's why the previous run ended up on main with no KSU_SUSFS Kconfig).
+        # ksu_commit is intentionally ignored: susfs support is branch-specific.
+        rm -rf KernelSU
+        git clone --depth=1 -b builtin https://github.com/SukiSU-Ultra/SukiSU-Ultra.git KernelSU
+        echo "SukiSU branch:"; git -C KernelSU rev-parse --abbrev-ref HEAD; git -C KernelSU log -1 --oneline
+        echo "KSU_SUSFS symbol count in Kconfig:"; grep -c "KSU_SUSFS" KernelSU/kernel/Kconfig || true
+        # Do NOT run setup.sh: with no arg it does `git checkout <latest-tag>`, which would
+        # switch away from the builtin branch (losing the KSU_SUSFS Kconfig), and `git pull`
+        # can fail on a shallow clone. Instead replicate exactly what setup.sh wires up:
+        #   1) symlink drivers/kernelsu -> KernelSU/kernel
+        #   2) obj-$(CONFIG_KSU) += kernelsu/  in drivers/Makefile
+        #   3) source "drivers/kernelsu/Kconfig" in drivers/Kconfig
+        ln -sf "$(realpath --relative-to=drivers KernelSU/kernel)" drivers/kernelsu
+        grep -q "kernelsu" drivers/Makefile || printf '\nobj-$(CONFIG_KSU) += kernelsu/\n' >> drivers/Makefile
+        grep -q 'source "drivers/kernelsu/Kconfig"' drivers/Kconfig || \
+          sed -i '/^endmenu/i source "drivers/kernelsu/Kconfig"' drivers/Kconfig
+        echo "Wired kernelsu into drivers/{Makefile,Kconfig}."
 
 
     - name: Enable KernelSU Config
