@@ -296,7 +296,7 @@ jobs:
 
     env:
       GH_TOKEN: ${{ github.token }}
-      RELEASE_NAME: "Pixel GKI2 Kernels With KernelSU-Next & SUSFS v2.1.0"
+      RELEASE_NAME: "Pixel GKI2 Kernels With SukiSU Ultra & SUSFS v2.2.0"
       RELEASE_BODY: ""
     outputs:
       new_tag: ${{ steps.tag.outputs.new_tag }}
@@ -389,8 +389,8 @@ jobs:
         Please ensure you have proper backups before installation.
 
         Features:
-        -> KernelSU-Next Manager, Wild KSU Manager Support is temporary disabled
-        -> SUSFS ඞ v2.1.0
+        -> SukiSU Ultra + KPM
+        -> SUSFS ඞ v2.2.0
         -> SUSFS Inline Hooks
         -> IPSet Support for Advanced Network Filtering
         -> BBRv3 TCP Congestion Control
@@ -407,10 +407,9 @@ jobs:
         -> https://github.com/fatalcoder524/KernelFlasher/
 
         Manager:
-        Temp Disabled (-> Wild KSU Manager: https://github.com/WildKernels/Wild_KSU)
-        -> KernelSU-Next Manager: https://github.com/KernelSU-Next/KernelSU-Next
+        -> SukiSU Ultra Manager: https://github.com/SukiSU-Ultra/SukiSU-Ultra
 
-        Module: 
+        Module:
         -> https://github.com/sidex15/ksu_module_susfs
         EOF
 
