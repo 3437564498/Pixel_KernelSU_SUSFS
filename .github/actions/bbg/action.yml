@@ -6,8 +6,9 @@ runs:
   steps:
     - name: Install Baseband Guard
       shell: bash
-      working-directory: ${{ github.workspace }}/kernel
+      working-directory: ${{ github.workspace }}/kernel/aosp
       run: |
+        # BBG setup.sh looks for the kernel "security/" dir, which lives in kernel/aosp.
         wget -O- https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh | bash
     
     - name: Configure Baseband Guard
@@ -34,8 +35,8 @@ runs:
     
     - name: Extract BBG Version
       shell: bash
-      working-directory: ${{ github.workspace }}/kernel/Baseband-guard
+      working-directory: ${{ github.workspace }}/kernel/aosp/Baseband-guard
       run: |
-        # Extract and export BBG version info
+        # Extract and export BBG version info (repo is cloned into kernel/aosp by setup.sh)
         BBG_COMMIT=$(git rev-parse --short HEAD 2>/dev/null)
         echo "BBG_COMMIT=$BBG_COMMIT" >> $GITHUB_ENV
