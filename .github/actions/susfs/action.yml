@@ -18,7 +18,9 @@ runs:
       shell: bash
       run: |
         SUSFS_BRANCH="gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}"
-        SUSFS_REPO="https://gitlab.com/simonpunk/susfs4ksu.git"
+        # Use ShirkNeko's susfs4ksu fork (maintained in lockstep with SukiSU Ultra)
+        # instead of upstream simonpunk, so susfs and 69_hide_stuff.patch stay aligned.
+        SUSFS_REPO="https://github.com/ShirkNeko/susfs4ksu.git"
         
         echo "Preparing SUSFS for branch: $SUSFS_BRANCH"
         
@@ -50,7 +52,7 @@ runs:
           git clone "$SUSFS_REPO" -b "$SUSFS_BRANCH" --depth=1 susfs4ksu
         fi
         
-        SUSFS_VERSION="v2.1.0"
+        SUSFS_VERSION="v2.2.0"
         echo "SUSFS_VERSION=$SUSFS_VERSION" >> $GITHUB_ENV
 
     - name: Enable KernelSU SUSFS Config
@@ -58,17 +60,22 @@ runs:
       working-directory: ${{ github.workspace }}
       run: |
         cat >> "${{ github.workspace }}/wild_gki.fragment" << 'EOF'
-        # KernelSU SUSFS Configuration
+        # SukiSU Ultra + SUSFS Configuration (aligned with ShirkNeko reference CI)
         CONFIG_KSU_SUSFS=y
+        CONFIG_KSU_SUSFS_SUS_SU=n
         CONFIG_KSU_SUSFS_SUS_PATH=y
         CONFIG_KSU_SUSFS_SUS_MOUNT=y
+        CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y
+        CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y
         CONFIG_KSU_SUSFS_SUS_KSTAT=y
+        CONFIG_KSU_SUSFS_SUS_MAP=y
+        CONFIG_KSU_SUSFS_TRY_UMOUNT=y
+        CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y
         CONFIG_KSU_SUSFS_SPOOF_UNAME=y
         CONFIG_KSU_SUSFS_ENABLE_LOG=y
         CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y
         CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
         CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
-        CONFIG_KSU_SUSFS_SUS_MAP=y
         EOF
     
     - name: Apply Kernel SUSFS Patches
@@ -81,9 +88,12 @@ runs:
         cp ${{ github.workspace }}/susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch ./
         patch -p1 < 50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch || true
 
-    - name: Apply KSU SUSFS Patches
+    - name: Apply SukiSU Ultra Hide Patch
       shell: bash
-      working-directory: ${{ github.workspace }}/kernel/aosp/KernelSU-Next
+      working-directory: ${{ github.workspace }}/kernel/aosp
       run: |
-        cp ${{ github.workspace }}/kernel_patches/wild/ksun-0daf55582-susfs-v2.1.0-e259e7d6.patch ./
-        patch -p1 < ksun-0daf55582-susfs-v2.1.0-e259e7d6.patch
+        # SukiSU Ultra handles SUSFS integration internally, so the KSUN-specific
+        # susfs patch is NOT used. Instead apply SukiSU's own 69_hide_stuff.patch.
+        git clone --depth=1 https://github.com/ShirkNeko/SukiSU_patch.git "${{ github.workspace }}/SukiSU_patch"
+        cp "${{ github.workspace }}/SukiSU_patch/69_hide_stuff.patch" ./
+        patch -p1 -F 3 < 69_hide_stuff.patch
