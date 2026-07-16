@@ -9,6 +9,9 @@ on:
       repo:
         required: true
         type: string
+      codename:
+        required: true
+        type: string
       ksu_commit:
         required: false
         type: string
@@ -163,7 +166,7 @@ jobs:
           fi
         fi 
 
-    - name: Setup KernelSU-Next
+    - name: Setup SukiSU Ultra
       if: contains(inputs.feature_set, 'KSUN')
       uses: ./.github/actions/kernelsu
       with:
@@ -228,7 +231,42 @@ jobs:
         set -ex
         # Copy fragment to kernel tree for bazel
         cp "$GITHUB_WORKSPACE/wild_gki.fragment" aosp/arch/arm64/configs/wild_gki.fragment
-        build_${{ matrix.codename }}.sh --config=release --stamp --defconfig_fragment=//aosp:arch/arm64/configs/wild_gki.fragment || exit 1
+        ./build_${{ inputs.codename }}.sh --config=release --stamp --defconfig_fragment=//aosp:arch/arm64/configs/wild_gki.fragment || exit 1
+
+    - name: Apply KPM Patch to Kernel Image
+      if: contains(inputs.feature_set, 'KSUN')
+      working-directory: ${{ github.workspace }}/kernel
+      run: |
+        set -ex
+        # KPM requires a post-build binary patch of the raw Image (SukiSU/ShirkNeko method).
+        # Locate the uncompressed Image produced by build_slider.sh.
+        CODENAME="${{ inputs.codename }}"
+        CANDIDATES=(
+          "$GITHUB_WORKSPACE/kernel/out/$CODENAME/dist/Image"
+          "$GITHUB_WORKSPACE/kernel/out/${ANDROID_VERSION}-${KERNEL_VERSION}/dist/Image"
+          "$GITHUB_WORKSPACE/kernel/bazel-bin/aosp/kernel_aarch64/Image"
+        )
+        IMG=""
+        for c in "${CANDIDATES[@]}"; do
+          if [ -f "$c" ]; then IMG="$c"; break; fi
+        done
+        if [ -z "$IMG" ]; then
+          IMG="$(find "$GITHUB_WORKSPACE/kernel" -name 'Image' -path '*dist*' 2>/dev/null | head -n1)"
+        fi
+        if [ -z "$IMG" ]; then
+          echo "WARNING: raw Image not found for KPM patch; skipping KPM (Image.lz4 build may still work)."
+          exit 0
+        fi
+        echo "KPM patching: $IMG"
+        cd "$(dirname "$IMG")"
+        curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU_patch/refs/heads/main/kpm/patch_linux" -o patch_linux
+        chmod +x patch_linux
+        ./patch_linux
+        mv oImage Image
+        # Regenerate Image.lz4 from the patched Image so AnyKernel3 picks up the KPM'd kernel.
+        if command -v lz4 >/dev/null 2>&1; then
+          lz4 -f -9 Image Image.lz4
+        fi
 
     - name: Create Bootimgs Folder and Build Boot Images
       if: false
@@ -318,8 +356,32 @@ jobs:
 
     - name: Prepare AnyKernel3 Zip
       run: |
-        # Copy Image from normal build locations
-        cp "$GITHUB_WORKSPACE/kernel/out/$CODENAM/dist/Image.lz4" "$GITHUB_WORKSPACE/AnyKernel3/Image.lz4"
+        set -ex
+        # build_slider.sh (Kleaf) output location varies; locate Image.lz4 robustly.
+        CODENAME="${{ inputs.codename }}"
+        CANDIDATES=(
+          "$GITHUB_WORKSPACE/kernel/out/$CODENAME/dist/Image.lz4"
+          "$GITHUB_WORKSPACE/kernel/out/${ANDROID_VERSION}-${KERNEL_VERSION}/dist/Image.lz4"
+          "$GITHUB_WORKSPACE/kernel/bazel-bin/aosp/kernel_aarch64/Image.lz4"
+        )
+        SRC=""
+        for c in "${CANDIDATES[@]}"; do
+          if [ -f "$c" ]; then SRC="$c"; break; fi
+        done
+        # Fallback: search the whole kernel tree for a produced Image.lz4
+        if [ -z "$SRC" ]; then
+          SRC="$(find "$GITHUB_WORKSPACE/kernel" -name 'Image.lz4' -path '*dist*' 2>/dev/null | head -n1)"
+        fi
+        if [ -z "$SRC" ]; then
+          SRC="$(find "$GITHUB_WORKSPACE/kernel" -name 'Image.lz4' 2>/dev/null | head -n1)"
+        fi
+        if [ -z "$SRC" ]; then
+          echo "ERROR: Image.lz4 not found anywhere under kernel/"
+          find "$GITHUB_WORKSPACE/kernel" -name 'Image*' 2>/dev/null | head -50
+          exit 1
+        fi
+        echo "Using kernel image: $SRC"
+        cp "$SRC" "$GITHUB_WORKSPACE/AnyKernel3/Image.lz4"
 
     - name: Scan and collect patch rejects
       id: scan
