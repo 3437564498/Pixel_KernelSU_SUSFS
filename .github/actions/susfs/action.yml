@@ -60,17 +60,15 @@ runs:
       working-directory: ${{ github.workspace }}
       run: |
         cat >> "${{ github.workspace }}/wild_gki.fragment" << 'EOF'
-        # SukiSU Ultra + SUSFS Configuration (aligned with ShirkNeko reference CI)
+        # SukiSU Ultra + SUSFS Configuration.
+        # ONLY the symbols actually declared in SukiSU's 'builtin' branch Kconfig are
+        # listed here. Extra symbols (SUS_SU / TRY_UMOUNT / AUTO_ADD_*) are NOT declared
+        # in that Kconfig and would fail bazel check_defconfig ("Are they declared in Kconfig?").
         CONFIG_KSU_SUSFS=y
-        CONFIG_KSU_SUSFS_SUS_SU=n
         CONFIG_KSU_SUSFS_SUS_PATH=y
         CONFIG_KSU_SUSFS_SUS_MOUNT=y
-        CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y
-        CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y
         CONFIG_KSU_SUSFS_SUS_KSTAT=y
         CONFIG_KSU_SUSFS_SUS_MAP=y
-        CONFIG_KSU_SUSFS_TRY_UMOUNT=y
-        CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y
         CONFIG_KSU_SUSFS_SPOOF_UNAME=y
         CONFIG_KSU_SUSFS_ENABLE_LOG=y
         CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y

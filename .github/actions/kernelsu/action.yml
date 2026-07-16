@@ -13,12 +13,14 @@ runs:
       shell: bash
       working-directory: ${{ github.workspace }}/kernel/aosp
       run: |
-        # Clone SukiSU Ultra into KernelSU/ (setup.sh takes an optional tag/commit arg)
-        if [ -n "${{ inputs.ksu_commit }}" ]; then
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s "${{ inputs.ksu_commit }}"
-        else
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash
-        fi
+        # setup.sh passes its first arg to `git checkout`. The SukiSU 'builtin' BRANCH
+        # is the one whose kernel/Kconfig declares the CONFIG_KSU_SUSFS_* symbols and
+        # whose Makefile has the susfs wiring. The default tag (v4.1.3)/main branch do
+        # NOT have susfs, causing bazel check_defconfig to fail. So use 'builtin' unless
+        # an explicit commit/branch is provided.
+        REF="${{ inputs.ksu_commit }}"
+        REF="${REF:-builtin}"
+        curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s "$REF"
 
 
     - name: Enable KernelSU Config
