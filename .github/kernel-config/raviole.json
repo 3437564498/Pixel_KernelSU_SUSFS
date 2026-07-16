@@ -1,7 +1,8 @@
 {
   "include": [
     {
-      "repo": "android-gs-raviole-6.1-android16"
+      "repo": "android-gs-raviole-6.1-android16",
+      "codename": "slider"
     }
   ]
 }
